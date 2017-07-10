@@ -1,0 +1,170 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta http-equiv="X-UA-Compatible" content="ie=edge">
+    <script src="https://ajax.aspnetcdn.com/ajax/jQuery/jquery-3.2.1.min.js"></script>
+    <script src="https://cdn.socket.io/socket.io-1.2.0.js"></script>
+    <style>
+        * {padding:0; margin: 0;}
+        canvas {background-color: #333; display: block; margin: 0 auto;}
+        
+    </style>
+    <title>JS Game</title>
+</head>
+<body>
+    <canvas id="myCanvas" width="480" height="580"></canvas>
+    <script src="/socket.io/socket.io.js"></script>
+    <script>
+        var socket = io();
+
+        socket.on('player', function(playerXY){
+            if(parseFloat(playerXY.split(',')[2]) !== playerId) {
+                createPlayer(playerXY)
+            }
+        });
+
+       
+
+        var canvas = document.getElementById("myCanvas");
+        var ctx = canvas.getContext("2d");
+        var playerId = Math.random()*10000
+        var playerHeight = 20;
+        var playerWidth = 20;
+        var playerColor = "#DDDDDD"
+        var playerX = (canvas.width-playerWidth)/2;
+        var playerY = (canvas.height-playerHeight)/2;
+        var jumpSpeed = 0;
+        var gravity = .2;
+        var others = []
+
+
+        var rightPressed = false;
+        var leftPressed = false;
+        var upPressed = false;
+        var downPressed = false;
+
+        document.addEventListener("keydown", keyDownHandler, false);
+        document.addEventListener("keyup", keyUpHandler, false);
+
+        
+
+        function createPlayer(playerXY) {
+            var playerInfo = playerXY.split(',')
+            var doesntExist = true
+            var oPlayer = new Object();
+            oPlayer.x = parseFloat(playerInfo[0]);
+            oPlayer.y = parseFloat(playerInfo[1]);
+            oPlayer.id = parseFloat(playerInfo[2]);
+            others.forEach(other => {
+                if(other.id === oPlayer.id) {
+                    other.x = oPlayer.x
+                    other.y = oPlayer.y
+                    doesntExist = false
+                }
+            })
+            if(doesntExist) {
+                others.push(oPlayer);
+            }   
+        }
+
+        function keyDownHandler(e) {
+            if(e.keyCode == 39) {
+                rightPressed = true;
+            } else if(e.keyCode == 37) {
+                leftPressed = true;
+            } else if (e.keyCode == 38) {
+                upPressed = true;
+            } else if (e.keyCode == 40) {
+                downPressed = true;
+            }
+        }
+
+        function keyUpHandler(e) {
+            if(e.keyCode == 39) {
+                rightPressed = false;
+            } else if(e.keyCode == 37) {
+                leftPressed = false;
+            } else if (e.keyCode == 38) {
+                upPressed = false;
+            } else if (e.keyCode == 40) {
+                downPressed = false;
+            }
+        }
+
+        function drawOther(x, y) {
+            ctx.beginPath();
+            ctx.rect(x, y, playerWidth, playerHeight);
+            ctx.fillStyle = '#EEEEEE';
+            ctx.fill();
+            ctx.closePath();
+        }
+
+        function drawPlayer() {
+            ctx.beginPath();
+            ctx.rect(playerX, playerY, playerWidth, playerHeight);
+            ctx.fillStyle = playerColor;
+            ctx.fill();
+            ctx.closePath();
+        }
+
+        function draw() {
+            
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            drawPlayer();
+            others.forEach(function(pl,index) {
+                drawOther(pl.x,pl.y)
+            })
+            
+            if (playerY < canvas.height-playerHeight && gravity < 9) {
+                gravity += .2;
+            } else if (playerY >= canvas.height-playerHeight) {
+                gravity = 0;
+            }
+
+            if (jumpSpeed > .2) {
+                jumpSpeed -= .2;
+            } else {
+                jumpSpeed = 0;
+            }
+
+            if (upPressed && playerY === canvas.height-playerHeight) {
+                jumpSpeed = 10;
+            } else if (downPressed && playerY < canvas.height-playerHeight) {
+                playerColor = "#DD5555"
+                jumpSpeed = 0;
+            }
+
+            if(rightPressed && playerX < canvas.width-playerWidth) {
+                playerX += 7;
+                playerY += gravity;
+                playerY -= jumpSpeed;
+            } else if (leftPressed && playerX > 0) {
+                playerX -= 7;
+                playerY += gravity;
+                playerY -= jumpSpeed;
+            } else if (playerY <= canvas.height-playerHeight) {
+                playerY += gravity;
+                playerY -= jumpSpeed;
+            } else if (playerY > 0) {
+                jumpSpeed = 0;
+                gravity = 0;
+            }
+
+            if (playerY > canvas.height-playerHeight) {
+                playerY = canvas.height-playerHeight;
+                playerColor = '#DDDDDD'
+            } else if (playerY < 0) {
+                playerY = 0;
+            }
+            
+            socket.emit('player', `${playerX},${playerY},${playerId}`);
+
+            requestAnimationFrame(draw);
+        }
+
+        draw();
+    </script>
+</body>
+</html>
