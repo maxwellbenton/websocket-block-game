@@ -8,7 +8,7 @@
     <script src="https://cdn.socket.io/socket.io-1.2.0.js"></script>
     <style>
         * {padding:0; margin: 0;}
-        canvas {background-color: #333; display: block; margin: 0 auto;}
+        canvas {background-color: #333333; display: block; margin: 0 auto;}
         
     </style>
     <title>JS Game</title>
@@ -32,18 +32,30 @@
         var playerId = Math.random()*10000
         var playerHeight = 20;
         var playerWidth = 20;
+        var playerQuarterWidth = playerWidth/4
+        var playerMidWidth = playerWidth/2
+        var playerThreeQuartersWidth = playerWidth/4 * 3
         var playerColor = "#DDDDDD"
-        var playerX = (canvas.width-playerWidth)/2;
-        var playerY = (canvas.height-playerHeight)/2;
+        var playerX = Math.random()*(canvas.width-playerWidth)+playerWidth;
+        var playerY = 50;
         var jumpSpeed = 0;
-        var gravity = .2;
+        var crushSpeed = 0;
+        var gravity = 7;
         var others = []
+        var deadBlocks = []
 
 
         var rightPressed = false;
         var leftPressed = false;
         var upPressed = false;
         var downPressed = false;
+        
+        var xCol = 0;
+        var yCol = 0;
+        var topC = false;
+        var rightC = false;
+        var bottomC = false;
+        var leftC = false;
 
         document.addEventListener("keydown", keyDownHandler, false);
         document.addEventListener("keyup", keyUpHandler, false);
@@ -109,58 +121,126 @@
             ctx.closePath();
         }
 
-        function draw() {
+        function createDeadBlock(x,y) {
             
+        }
+
+        function draw() {
+            gravity = 7
+
             ctx.clearRect(0, 0, canvas.width, canvas.height);
             drawPlayer();
             others.forEach(function(pl,index) {
                 drawOther(pl.x,pl.y)
-            })
+            })x
             
-            if (playerY < canvas.height-playerHeight && gravity < 9) {
-                gravity += .2;
-            } else if (playerY >= canvas.height-playerHeight) {
-                gravity = 0;
+            let collisionChecks = [
+                ctx.getImageData(playerX, playerY-3, 1, 1),
+                ctx.getImageData(playerX+playerWidth, playerY-3, 1, 1),
+                
+                ctx.getImageData(playerX+playerWidth+2, playerY, 1, 1),
+                ctx.getImageData(playerX+playerWidth+2, playerY+playerHeight, 1, 1),
+                
+                ctx.getImageData(playerX+playerWidth, playerY+playerHeight+2, 1, 1),
+                ctx.getImageData(playerX+playerQuarterWidth, playerY+playerHeight+2, 1, 1),
+                ctx.getImageData(playerX+playerMidWidth, playerY+playerHeight+2, 1, 1),
+                ctx.getImageData(playerX+playerThreeQuartersWidth, playerY+playerHeight+2, 1, 1),
+                ctx.getImageData(playerX, playerY+playerHeight+2, 1, 1),
+                
+                ctx.getImageData(playerX-3, playerY+playerHeight, 1, 1),
+                ctx.getImageData(playerX-3, playerY, 1, 1)
+            ]
+            
+            let collisions = []
+            for(let l = 0; l < collisionChecks.length; l++) {
+                if(collisionChecks[l].data[0] === 238) {
+                    switch(l) {
+                        case 0:
+                        case 1:
+                            console.log('top')
+                            topC = true;
+                            break;
+                        case 2:
+                        case 3:
+                            console.log('right')
+                            rightC = true;
+                            break;
+                        
+                        case 5:
+                        case 6:
+                        case 7:
+                        
+                            console.log('bottom')
+                            bottomC = true;
+                            break;
+                        case 9:
+                        case 10:
+                            console.log('left')
+                            leftC = true;
+                            break;
+                    }
+                }
             }
-
-            if (jumpSpeed > .2) {
-                jumpSpeed -= .2;
-            } else {
-                jumpSpeed = 0;
+            
+            if(jumpSpeed > 0) {
+                jumpSpeed -= .2
             }
-
-            if (upPressed && playerY === canvas.height-playerHeight) {
-                jumpSpeed = 10;
-            } else if (downPressed && playerY < canvas.height-playerHeight) {
-                playerColor = "#DD5555"
-                jumpSpeed = 0;
-            }
-
-            if(rightPressed && playerX < canvas.width-playerWidth) {
+            
+            if (rightPressed && playerX < canvas.width-playerWidth && !rightC) {
                 playerX += 7;
-                playerY += gravity;
-                playerY -= jumpSpeed;
-            } else if (leftPressed && playerX > 0) {
+            } else if (leftPressed && playerX > 0 && !leftC) {
                 playerX -= 7;
-                playerY += gravity;
-                playerY -= jumpSpeed;
-            } else if (playerY <= canvas.height-playerHeight) {
-                playerY += gravity;
-                playerY -= jumpSpeed;
-            } else if (playerY > 0) {
+            }   
+
+            if(jumpSpeed < .2) {
                 jumpSpeed = 0;
-                gravity = 0;
+            }            
+
+            
+
+            if (upPressed && jumpSpeed === 0 && (bottomC || playerY+playerHeight >= canvas.height)) {
+                jumpSpeed = 15;
+            } else if (downPressed && bottomC === false) {
+                jumpSpeed = 0;
+                crushSpeed = 5;
+                playerColor = "#DD5555"
             }
 
-            if (playerY > canvas.height-playerHeight) {
-                playerY = canvas.height-playerHeight;
+            if (bottomC || playerY+playerHeight >= canvas.height) {
+                gravity = 0;
+                crushSpeed = 0;
                 playerColor = '#DDDDDD'
-            } else if (playerY < 0) {
-                playerY = 0;
             }
+
             
+
+            playerY +=gravity+crushSpeed-jumpSpeed
+
+            if (topC) {
+                deadBlocks.push([playerX,playerY])
+                playerX = Math.random()*(canvas.width-playerWidth)+playerWidth;
+                playerY = 50;
+                jumpSpeed = 0;
+            }
+
+            if (playerY < 0) {
+                playerY = 0;
+                jumpSpeed = 0;
+            } else if (playerY > canvas.height-playerHeight) {
+                playerY = canvas.height-playerHeight
+                
+            } else if (playerX < 0) {
+                playerX = 0;
+            } else if (playerX > canvas.width-playerWidth) {
+                playerX = canvas.width-playerWidth;
+            }
+
             socket.emit('player', `${playerX},${playerY},${playerId}`);
 
+            topC = false;
+            rightC = false;
+            bottomC = false;
+            leftC = false;
             requestAnimationFrame(draw);
         }
 
