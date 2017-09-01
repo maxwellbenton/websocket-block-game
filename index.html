@@ -106,7 +106,15 @@
             }
         }
         function generateMapObject() {
-          
+          var moUpperLeft = Math.floor(Math.random() * canvas.height) + 50
+          var moLowerLeft = Math.floor(Math.random() * moUpperLeft)
+          var moLength = Math.floor(Math.random() * canvas.width) + 50
+          var mapObject = new Object();
+          mapObject.x = canvas.width
+          mapObject.y = moUpperLeft
+          mapObject.endX = canvas.width+moLength
+          mapObject.endY = moLowerLeft
+          levelObjects.push(mapObject)
         }
         function drawOther(x, y) {
             ctx.beginPath();
@@ -124,8 +132,12 @@
             ctx.closePath();
         }
 
-        function createDeadBlock(x,y) {
-
+        function drawLevelObjects(x,y,eX,eY) {
+          ctx.beginPath();
+          ctx.rect(x, y, eX, eY);
+          ctx.fillStyle = '#EEEEEE';
+          ctx.fill();
+          ctx.closePath();
         }
 
         function draw() {
@@ -135,6 +147,11 @@
             drawPlayer();
             others.forEach(function(pl,index) {
                 drawOther(pl.x,pl.y)
+            })
+            levelObjects.forEach(function(ob) {
+              drawLevelObjects(ob.x,ob.y,ob.endX,ob.endY)
+              ob.x--;
+              ob.endX--;
             })
 
             let collisionChecks = [
